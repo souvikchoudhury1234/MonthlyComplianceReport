@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QC Compliance & Escalation Report — August 2026</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #e5e5e2;
+    --accent: #2b4a7c;
+    --fail: #b23a3a;
+    --escal: #b8791f;
+    --good: #2e7d4f;
+    --hover: #eef2f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.5;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { font-size: 24px; margin: 0 0 4px 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .signin-btn { background: white; border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--ink); }
+  .signin-btn:hover { background: var(--hover); border-color: var(--accent); }
+  .signin-btn.secondary { padding: 3px 8px; font-size: 11px; margin-left: 6px; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal { background: white; border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .modal input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  .modal .signin-btn { padding: 8px 14px; font-size: 13px; }
+  .modal .signin-btn.secondary { padding: 8px 12px; font-size: 12px; margin-left: 0; }
+  .note { background: #fff8e5; border-left: 3px solid var(--escal); padding: 10px 14px; margin: 16px 0; font-size: 13px; color: #5a4a1a; }
+  .escal-disclaimer { background: #fef2f2; border-left: 3px solid var(--fail); padding: 12px 16px; margin: 16px 0 24px; font-size: 13px; color: #6b2020; border-radius: 3px; }
+  .escal-disclaimer strong { color: var(--fail); }
+
+  /* Sticky agent detail panel */
+  #agent-detail {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    display: none;
+  }
+  #agent-detail.active { display: block; }
+  #agent-detail .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  #agent-detail h2 { margin: 0; font-size: 18px; color: var(--accent); }
+  #agent-detail .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  #agent-detail .close { background: none; border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  #agent-detail .close:hover { background: var(--hover); }
+  #agent-detail .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { #agent-detail .detail-grid { grid-template-columns: 1fr; } }
+  #agent-detail .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--muted); }
+  #agent-detail .call-list { list-style: none; padding: 0; margin: 0; }
+  #agent-detail .call-list li { padding: 8px 8px; border-bottom: 1px solid var(--line); font-size: 13px; display: block; }
+  #agent-detail .call-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  #agent-detail .reason { font-size: 12px; color: var(--fail); margin-top: 4px; padding-left: 2px; line-height: 1.4; }
+  #agent-detail .reason.muted { color: var(--muted); font-style: italic; }
+  #agent-detail .call-list li:last-child { border-bottom: none; }
+  #agent-detail .call-list .prog { flex: 1; }
+  #agent-detail .call-list .qc { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 60px; text-align: right; }
+  #agent-detail .call-list .qc.low { color: #7a1010; font-weight: 700; }
+  #agent-detail .call-list .qc.mid { color: var(--escal); }
+  #agent-detail .call-list .qc.high { color: var(--good); }
+  #agent-detail .call-list .open-link { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 500; white-space: nowrap; padding: 2px 8px; border: 1px solid var(--line); border-radius: 3px; }
+  #agent-detail .call-list .open-link:hover { background: var(--hover); border-color: var(--accent); }
+  #agent-detail .empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  #agent-detail .ad-alert { margin: 0 0 14px; padding: 12px 14px; background: linear-gradient(90deg, #ffe5e5 0%, #fbd9d9 100%); border: 2px solid #b23a3a; border-radius: 5px; color: #6b1010; font-size: 13px; line-height: 1.5; box-shadow: 0 0 0 3px rgba(178, 58, 58, 0.15); animation: alert-pulse 2s infinite; }
+  @keyframes alert-pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(178, 58, 58, 0.15); } 50% { box-shadow: 0 0 0 6px rgba(178, 58, 58, 0.08); } }
+  #agent-detail .ad-alert strong { color: #7a1010; font-size: 14px; }
+  #agent-detail .ad-alert .score-big { font-size: 18px; font-weight: 700; color: #7a1010; }
+  #agent-detail .escalate-block { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #b23a3a; }
+  #agent-detail .escalate-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #7a1010; font-weight: 700; margin-bottom: 8px; }
+  #agent-detail .escalate-leads { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #agent-detail .lead-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: white; border: 1px solid #b23a3a; border-radius: 12px; color: #7a1010; text-decoration: none; font-size: 12px; font-weight: 600; }
+  #agent-detail .lead-chip::before { content: '✉'; font-size: 11px; opacity: 0.7; }
+  #agent-detail .lead-chip:hover { background: #7a1010; color: white; }
+  #agent-detail .lead-chip.cc-chip { border-color: #a06060; color: #5a3030; background: #fff5f0; }
+  #agent-detail .lead-chip.cc-chip::before { content: 'CC ✉'; font-size: 10px; }
+  #agent-detail .lead-chip.cc-chip:hover { background: #5a3030; color: white; }
+  #agent-detail .escalate-all { display: inline-block; padding: 7px 14px; background: #7a1010; color: white; text-decoration: none; font-size: 12px; font-weight: 700; border-radius: 4px; letter-spacing: 0.3px; }
+  #agent-detail .escalate-all:hover { background: #5a0808; }
+  #agent-detail .sender-note { margin-top: 10px; padding: 8px 12px; background: rgba(255,255,255,0.7); border-left: 3px solid #7a1010; font-size: 11px; color: #4a2020; line-height: 1.5; border-radius: 3px; }
+  #agent-detail .sender-note strong { color: #7a1010; }
+
+  /* KPI strip */
+  .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+  @media (max-width: 700px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { background: var(--panel); border: 1px solid var(--line); padding: 14px; border-radius: 4px; }
+  .kpi .k { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
+  .kpi .v { font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* MoM comparison */
+  .mom { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 28px; }
+  .mom h2 { margin: 0 0 14px 0; font-size: 16px; }
+  .mom-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 800px) { .mom-grid { grid-template-columns: repeat(2, 1fr); } }
+  .mom-card { border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+  .mom-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 6px; }
+  .mom-vals { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+  .mom-vals .arrow { font-size: 14px; margin: 0 4px; }
+  .mom-delta { font-size: 11px; font-weight: 600; }
+  .mom-delta.good, .arrow.good { color: var(--good); }
+  .mom-delta.bad, .arrow.bad { color: var(--fail); }
+  .mom-delta.up-neutral, .arrow.up-neutral { color: var(--muted); }
+  .mom-note { margin-top: 14px; padding: 10px 14px; background: var(--hover); border-radius: 4px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Legend */
+  .legend { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px 20px; margin-bottom: 28px; }
+  .legend h2 { margin: 0 0 12px 0; font-size: 15px; }
+  .legend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 700px) { .legend-grid { grid-template-columns: 1fr; } }
+  .legend-col h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 0 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .legend-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+  .legend-row .sample { flex-shrink: 0; }
+  .legend-row .desc { color: var(--ink); }
+  .legend-row .desc em { color: var(--muted); font-style: normal; font-size: 12px; }
+  .legend .qc-sample { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 3px; min-width: 60px; text-align: center; }
+  .qc-sample.high { color: var(--good); background: #e8f5ee; }
+  .qc-sample.mid { color: var(--escal); background: #fff4e0; }
+  .qc-sample.low { color: #7a1010; background: #f5d5d5; font-weight: 700; }
+
+  /* Workflow blocks */
+  .workflow { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 28px; overflow: hidden; }
+  .workflow-head { background: var(--ink); color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; gap: 12px; }
+  .workflow-head:hover { background: #2a2a2a; }
+  .workflow-head .left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .workflow-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .workflow-head .stats { font-size: 12px; opacity: 0.85; font-variant-numeric: tabular-nums; text-align: right; }
+  .workflow-head .chevron { display: inline-block; width: 16px; height: 16px; transition: transform 0.2s; flex-shrink: 0; font-size: 12px; }
+  .workflow.collapsed .chevron { transform: rotate(-90deg); }
+  .workflow.collapsed .workflow-body { display: none; }
+
+  /* Pie chart section */
+  .pies { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  @media (max-width: 800px) { .pies { grid-template-columns: 1fr; } }
+  .pie-card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; }
+  .pie-card h3 { margin: 0 0 4px 0; font-size: 15px; }
+  .pie-card .sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .pie-wrap { display: flex; align-items: center; gap: 20px; }
+  @media (max-width: 500px) { .pie-wrap { flex-direction: column; align-items: stretch; } }
+  .pie-svg { flex-shrink: 0; }
+  .pie-legend { flex: 1; list-style: none; padding: 0; margin: 0; font-size: 12px; }
+  .pie-legend li { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .pie-legend .sw { width: 12px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+  .pie-legend .lbl { flex: 1; }
+  .pie-legend .val { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+  .pie-slice { transition: opacity 0.15s; cursor: default; }
+  .pie-slice:hover { opacity: 0.75; }
+  .workflow-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 800px) { .workflow-body { grid-template-columns: 1fr; } }
+  .block { padding: 18px 20px; }
+  .block + .block { border-left: 1px solid var(--line); }
+  @media (max-width: 800px) { .block + .block { border-left: none; border-top: 1px solid var(--line); } }
+  .block-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .block-title.fail { color: var(--fail); border-bottom-color: var(--fail); }
+  .block-title.escal { color: var(--escal); border-bottom-color: var(--escal); }
+  .block-title .count { background: currentColor; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .agent-list { list-style: none; padding: 0; margin: 0; }
+  .agent-list-head { display: grid; grid-template-columns: 1fr 55px 68px 82px 34px; gap: 6px; padding: 6px 6px 8px; border-bottom: 2px solid var(--ink); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .agent-list-head .h-trend, .agent-list-head .h-score { text-align: center; }
+  .agent-list-head .h-calls, .agent-list-head .h-num { text-align: right; }
+  .agent-list li { display: grid; grid-template-columns: 1fr 55px 68px 82px 34px; gap: 6px; align-items: center; padding: 8px 6px; border-bottom: 1px dotted var(--line); }
+  .agent-list li:last-child { border-bottom: none; }
+  .agent-list a { color: var(--accent); text-decoration: none; font-weight: 500; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .agent-list a:hover { text-decoration: underline; background: var(--hover); }
+  .warn-dot { color: #7a1010; font-size: 13px; margin-left: 4px; animation: pulse-warn 1.8s infinite; }
+  @keyframes pulse-warn { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .agent-list .calls { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .agent-list .num { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .agent-list .trend-cell { display: flex; justify-content: center; }
+  .agent-list .score-cell { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 12px; padding: 3px 6px; border-radius: 3px; }
+  .score-cell.score-high { background: #e8f5ee; color: #1f6a3d; }
+  .score-cell.score-mid { background: #fff4e0; color: #7a5a10; }
+  .score-cell.score-low { background: #f5d5d5; color: #7a1010; border: 1px solid #d99; }
+  .num.fail { color: var(--fail); }
+  .num.escal { color: var(--escal); }
+  .trend { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: 0.3px; display: inline-block; min-width: 70px; text-align: center; }
+  .trend.down { background: #dcf4e3; color: #1f6a3d; border: 1px solid #a3d9b8; }
+  .trend.up { background: #fbe3e3; color: #a02020; border: 1px solid #eab8b8; }
+  .trend.same { background: #eeeee8; color: #6b6b6b; border: 1px solid #d5d5d0; }
+  .trend.new { background: #fde8d6; color: #a04f10; border: 1px solid #f0c8a0; }
+
+  /* Question-level tables */
+  .qsection { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 28px; }
+  .qsection h2 { font-size: 16px; margin: 0 0 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.3px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover td { background: var(--hover); }
+
+  /* Recognition — glittery highlighted */
+  .recog {
+    position: relative;
+    background: linear-gradient(135deg, #fff9e6 0%, #fef3d0 40%, #fff4d6 70%, #fef8e0 100%);
+    border: 2px solid #e6b800;
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 0 0 1px rgba(230, 184, 0, 0.15), 0 4px 20px rgba(230, 184, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.6);
+    overflow: hidden;
+  }
+  .recog::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: shimmer 3.5s infinite;
+    pointer-events: none;
+  }
+  @keyframes shimmer {
+    0% { left: -100%; }
+    50% { left: 150%; }
+    100% { left: 150%; }
+  }
+  .recog::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 15% 25%, rgba(255,215,0,0.6) 1px, transparent 2px),
+      radial-gradient(circle at 85% 30%, rgba(255,215,0,0.5) 1px, transparent 2px),
+      radial-gradient(circle at 30% 70%, rgba(255,215,0,0.55) 1px, transparent 2px),
+      radial-gradient(circle at 75% 80%, rgba(255,215,0,0.5) 1px, transparent 2px),
+      radial-gradient(circle at 50% 15%, rgba(255,215,0,0.5) 1px, transparent 2px),
+      radial-gradient(circle at 92% 60%, rgba(255,215,0,0.4) 1px, transparent 2px),
+      radial-gradient(circle at 8% 55%, rgba(255,215,0,0.4) 1px, transparent 2px);
+    background-size: 100% 100%;
+    animation: sparkle 4s infinite ease-in-out;
+    pointer-events: none;
+  }
+  @keyframes sparkle {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  .recog > * { position: relative; z-index: 1; }
+  .recog h2 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    background: linear-gradient(90deg, #b8860b, #daa520, #b8860b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .recog .recog-sub { color: #7a5a10; font-size: 12px; margin-bottom: 16px; font-style: italic; }
+  .recog-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .recog-grid { grid-template-columns: 1fr; } }
+  .recog-col {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(230, 184, 0, 0.3);
+    border-radius: 6px;
+    padding: 12px 14px;
+    backdrop-filter: blur(2px);
+  }
+  .recog-col h3 { font-size: 12px; text-transform: uppercase; color: #8a6a10; margin: 0 0 8px 0; letter-spacing: 0.7px; font-weight: 700; border-bottom: 1px dashed rgba(230, 184, 0, 0.4); padding-bottom: 6px; }
+  .recog-col ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .recog-col li { padding: 4px 0; display: flex; justify-content: space-between; align-items: center; color: #4a3a0a; }
+  .recog-col li .c { color: #7a5a10; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px; }
+  .recog-fully { margin-top: 14px; padding: 10px 14px; background: rgba(255,255,255,0.6); border: 1px dashed #daa520; border-radius: 6px; font-size: 13px; color: #4a3a0a; }
+  .recog-fully strong { color: #b8860b; }
+
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 0; border-top: 1px solid var(--line); margin-top: 32px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+    <div>
+      <h1>QC Compliance &amp; Escalation Report</h1>
+      <div class="sub">August 2026 · 1 Aug 00:00 → 31 Aug 23:59 IST · 15,708 calls evaluated · 66 agents</div>
+    </div>
+    <div id="signin-bar" style="text-align:right; font-size:12px;">
+      <button id="signin-btn" class="signin-btn" onclick="promptSignIn()">🔒 Sign in for escalation controls</button>
+      <div id="signin-status" style="display:none;">
+        <span style="color:var(--good); font-weight:600;">✓ Signed in as <span id="signed-email"></span></span>
+        <button class="signin-btn secondary" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="note">
+  <strong>Reasons attached.</strong> Each compliance failure in the agent detail panels now shows the specific QC question(s) that failed. Escalations still show only aggregate drivers at the org level — the source doesn't tag individual escalated calls with a driver. Dates of occurrence also aren't in the source export.
+</div>
+
+<div class="escal-disclaimer">
+  <strong>Why escalations happened this month:</strong> nearly every escalation traces back to the same communication pattern — the agent <strong>repeated questions the payer had already answered</strong>, failed to adapt to the payer's response, and the payer became frustrated. 153 of 154 escalations flagged repeated questioning, 106 flagged failure to adapt, and 101 flagged explicit payer frustration. This is the dominant driver across MM, PBM, and Transport — coaching should target active listening and adapting to payer answers on the first pass.
+</div>
+
+<!-- Sign-in modal -->
+<div id="signin-modal" class="modal-backdrop" style="display:none">
+  <div class="modal">
+    <h3 style="margin:0 0 8px 0; font-size:16px;">🔒 Sign in for escalation controls</h3>
+    <p style="margin:0 0 14px 0; color:var(--muted); font-size:12px; line-height:1.5;">
+      Enter your email to unlock the escalation UI. This is a client-side check for authorized viewers only.
+    </p>
+    <input type="email" id="signin-input" placeholder="your.email@100ms.ai" style="width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:4px; font-size:13px; margin-bottom:10px;" autocomplete="email" />
+    <div id="signin-msg" style="color:var(--fail); font-size:12px; min-height:16px; margin-bottom:8px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="signin-btn secondary" onclick="closeSignIn()">Cancel</button>
+      <button class="signin-btn" style="background:var(--accent); color:white; border-color:var(--accent);" onclick="submitSignIn()">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sticky agent detail -->
+<div id="agent-detail">
+  <div class="head">
+    <div>
+      <h2 id="ad-name">—</h2>
+      <div class="meta" id="ad-meta">—</div>
+    </div>
+    <button class="close" onclick="closeAgent()">Close ✕</button>
+  </div>
+  <div id="ad-alert" class="ad-alert" style="display:none"></div>
+  <div class="detail-grid">
+    <div>
+      <div class="section-title">Compliance failures</div>
+      <ul class="call-list" id="ad-fails"></ul>
+    </div>
+    <div>
+      <div class="section-title">Escalations</div>
+      <ul class="call-list" id="ad-escals"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- KPI strip -->
+<div class="kpi-strip">
+  <div class="kpi"><div class="k">Calls evaluated</div><div class="v">15,708</div><div class="s">across MM · PBM · Transport</div></div>
+  <div class="kpi"><div class="k">Compliance failures</div><div class="v" style="color:var(--fail)">54</div><div class="s">0.3% · 30 agents</div></div>
+  <div class="kpi"><div class="k">Escalations</div><div class="v" style="color:var(--escal)">154</div><div class="s">1.0% · 52 agents</div></div>
+  <div class="kpi"><div class="k">Fully clean</div><div class="v" style="color:var(--good)">9</div><div class="s">agents with zero on both</div></div>
+</div>
+
+<!-- July → August comparison -->
+<div class="mom">
+  <h2>July → August · Month-over-Month</h2>
+  <div class="mom-grid">
+    <div class="mom-card">
+      <div class="mom-label">Calls evaluated</div>
+      <div class="mom-vals">9,398 <span class="arrow up-neutral">→</span> 15,708</div>
+      <div class="mom-delta up-neutral">+67% volume</div>
+    </div>
+    <div class="mom-card">
+      <div class="mom-label">Compliance failures</div>
+      <div class="mom-vals">74 (0.79%) <span class="arrow good">▼</span> 54 (0.34%)</div>
+      <div class="mom-delta good">Big improvement — failure rate more than halved</div>
+    </div>
+    <div class="mom-card">
+      <div class="mom-label">Escalations</div>
+      <div class="mom-vals">67 (0.71%) <span class="arrow bad">▲</span> 154 (0.98%)</div>
+      <div class="mom-delta bad">Regressed — rate up ~38%, absolute count more than doubled</div>
+    </div>
+    <div class="mom-card">
+      <div class="mom-label">Agents in the roster</div>
+      <div class="mom-vals">69 <span class="arrow up-neutral">→</span> 66</div>
+      <div class="mom-delta up-neutral">Small roster shift</div>
+    </div>
+  </div>
+  <div class="mom-note">
+    Compliance coaching landed — the July playbook clearly worked. Escalations went the other way, driven almost entirely by the "repeat → don't adapt → payer frustration" pattern. Trend arrows on every agent row below show individual July → August direction.
+  </div>
+</div>
+
+<!-- Issue breakdown pie charts -->
+<div class="pies">
+  <div class="pie-card">
+    <h3>Compliance failures by question</h3>
+    <div class="sub">54 flagged calls · a call can trip multiple questions (77 total trips)</div>
+    <div class="pie-wrap">
+      <svg class="pie-svg" id="pie-compliance" width="180" height="180" viewBox="0 0 180 180"></svg>
+      <ul class="pie-legend" id="legend-compliance"></ul>
+    </div>
+  </div>
+  <div class="pie-card">
+    <h3>Escalation drivers</h3>
+    <div class="sub">154 escalations · 393 driver flags across all calls</div>
+    <div class="pie-wrap">
+      <svg class="pie-svg" id="pie-escalation" width="180" height="180" viewBox="0 0 180 180"></svg>
+      <ul class="pie-legend" id="legend-escalation"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Recognition — glittery highlighted block, positioned right after the pie charts -->
+<div class="recog">
+  <h2>✨ ⭐ Fully Clean — Zero Failures &amp; Zero Escalations ⭐ ✨</h2>
+  <div class="recog-sub">The 9 agents below finished August with zero compliance failures and zero escalations across every call they took. 🏆</div>
+  <div class="recog-grid">
+    <div class="recog-col">
+      <h3>💎 MedBV</h3>
+      <ul>
+        <li><span>Keerthana K</span><span class="c">175 calls</span></li>
+        <li><span>Junaid R</span><span class="c">139 calls</span></li>
+        <li><span>Kelam Siva Sankar</span><span class="c">116 calls</span></li>
+      </ul>
+    </div>
+    <div class="recog-col">
+      <h3>💎 PBM</h3>
+      <ul>
+        <li><span>Pallavi N</span><span class="c">343 calls</span></li>
+        <li><span>Syed Sahil</span><span class="c">185 calls</span></li>
+        <li><span>Mohammed Ayub</span><span class="c">35 calls</span></li>
+      </ul>
+    </div>
+    <div class="recog-col">
+      <h3>💎 Transportation</h3>
+      <ul>
+        <li><span>Shreya Pendkur</span><span class="c">104 calls</span></li>
+        <li><span>Srinivasan Baskaran</span><span class="c">101 calls</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="recog-fully">
+    <strong>Also worth calling out (zero compliance failures OR zero escalations, but not both):</strong> another 14 MedBV agents, 12 PBM agents, and 2 Transportation agents finished the month clean on one of the two dimensions. See the full workflow blocks below for details.
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <h2>Legend — how to read this report</h2>
+  <div class="legend-grid">
+    <div class="legend-col">
+      <h4>Trend badges (Jul → Aug column)</h4>
+      <div class="legend-row">
+        <span class="sample trend down">▼ 5→2</span>
+        <span class="desc">Improved — fewer failures/escalations than July <em>(lower is better)</em></span>
+      </div>
+      <div class="legend-row">
+        <span class="sample trend up">▲ 1→3</span>
+        <span class="desc">Worsened — more failures/escalations than July</span>
+      </div>
+      <div class="legend-row">
+        <span class="sample trend same">● 2=2</span>
+        <span class="desc">Same — identical count to July</span>
+      </div>
+      <div class="legend-row">
+        <span class="sample trend new">NEW</span>
+        <span class="desc">Not flagged in July for this category — newly appearing</span>
+      </div>
+    </div>
+    <div class="legend-col">
+      <h4>QC score colours (in agent detail panel)</h4>
+      <div class="legend-row">
+        <span class="qc-sample high">QC 95%</span>
+        <span class="desc">Above 94% — high band</span>
+      </div>
+      <div class="legend-row">
+        <span class="qc-sample mid">QC 87%</span>
+        <span class="desc">80 – 94% — mid band</span>
+      </div>
+      <div class="legend-row">
+        <span class="qc-sample low">QC 74%</span>
+        <span class="desc">Below 80% — low band, closer look warranted</span>
+      </div>
+      <h4 style="margin-top:16px">Quality Score</h4>
+      <div class="legend-row">
+        <span class="sample score-cell score-high">96.5%</span>
+        <span class="desc">90%+ — healthy</span>
+      </div>
+      <div class="legend-row">
+        <span class="sample score-cell score-mid">85.2%</span>
+        <span class="desc">80–89% — watch</span>
+      </div>
+      <div class="legend-row">
+        <span class="sample score-cell score-low">68.6%</span>
+        <span class="desc">Below 80% — <strong>coaching flag</strong>, alert banner shows when opened</span>
+      </div>
+      <div class="legend-row">
+        <span class="sample" style="background:#f5d5d5; color:#7a1010; font-weight:700; padding:3px 8px; border-radius:3px; border:1px solid #d99;">⚠ 4+ fails</span>
+        <span class="desc"><strong>Auto red alert</strong> if compliance failures ≥ 4 in a month, regardless of Quality Score</span>
+      </div>
+      <div class="legend-row" style="padding-top:8px; border-top:1px dashed var(--line); margin-top:4px">
+        <span class="desc"><em>Formula:</em> 100 − (5 × compliance failure rate + 3 × escalation rate). Compliance is weighted higher because it's a regulatory risk; escalations are a coaching signal.</span>
+      </div>
+      <h4 style="margin-top:16px">Other conventions</h4>
+      <div class="legend-row">
+        <span class="desc"><strong>#</strong> column shows August count · <strong>Calls</strong> shows total calls that agent took in the month · click any agent name to see their flagged calls with reasons and links.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MM workflow -->
+<div class="workflow" id="wf-mm">
+  <div class="workflow-head" onclick="toggleWorkflow('wf-mm')">
+    <div class="left"><span class="chevron">▼</span><h2>MedBV (MM)</h2></div>
+    <div class="stats">5,617 calls · 30 failures (0.5%) · 90 escalations (1.6%)</div>
+  </div>
+  <div class="workflow-body">
+    <div class="block">
+      <div class="block-title fail">Compliance failures <span class="count">30</span></div>
+      <ul class="agent-list" id="mm-fails"></ul>
+    </div>
+    <div class="block">
+      <div class="block-title escal">Escalations <span class="count">90</span></div>
+      <ul class="agent-list" id="mm-escals"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- PBM workflow -->
+<div class="workflow" id="wf-pbm">
+  <div class="workflow-head" onclick="toggleWorkflow('wf-pbm')">
+    <div class="left"><span class="chevron">▼</span><h2>PBM</h2></div>
+    <div class="stats">9,479 calls · 19 failures (0.2%) · 63 escalations (0.7%)</div>
+  </div>
+  <div class="workflow-body">
+    <div class="block">
+      <div class="block-title fail">Compliance failures <span class="count">19</span></div>
+      <ul class="agent-list" id="pbm-fails"></ul>
+    </div>
+    <div class="block">
+      <div class="block-title escal">Escalations <span class="count">63</span></div>
+      <ul class="agent-list" id="pbm-escals"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Transportation workflow -->
+<div class="workflow" id="wf-tr">
+  <div class="workflow-head" onclick="toggleWorkflow('wf-tr')">
+    <div class="left"><span class="chevron">▼</span><h2>Transportation</h2></div>
+    <div class="stats">612 calls · 5 failures (0.8%) · 1 escalation (0.2%)</div>
+  </div>
+  <div class="workflow-body">
+    <div class="block">
+      <div class="block-title fail">Compliance failures <span class="count">5</span></div>
+      <ul class="agent-list" id="tr-fails"></ul>
+    </div>
+    <div class="block">
+      <div class="block-title escal">Escalations <span class="count">1</span></div>
+      <ul class="agent-list" id="tr-escals"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Question-level compliance -->
+<div class="qsection">
+  <h2>Question-Level Compliance Failures</h2>
+  <p style="color:var(--muted); font-size:12px; margin:-8px 0 12px">A single call can trip multiple questions, so totals here sum above 54.</p>
+  <table>
+    <thead><tr><th>Failed question</th><th class="num">MedBV</th><th class="num">PBM</th><th class="num">Transport</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr><td>Program name / intro wrong or missing</td><td class="num">19</td><td class="num">12</td><td class="num">0</td><td class="num"><strong>31</strong></td></tr>
+      <tr><td>Recording disclosure not given</td><td class="num">10</td><td class="num">5</td><td class="num">2</td><td class="num"><strong>17</strong></td></tr>
+      <tr><td>Disclosure not restated on transfer</td><td class="num">4</td><td class="num">6</td><td class="num">1</td><td class="num"><strong>11</strong></td></tr>
+      <tr><td>HIPAA verification order violated</td><td class="num">5</td><td class="num">2</td><td class="num">2</td><td class="num"><strong>9</strong></td></tr>
+      <tr><td>Wrong callback number</td><td class="num">4</td><td class="num">2</td><td class="num">1</td><td class="num"><strong>7</strong></td></tr>
+      <tr><td>Agent introduction missing</td><td class="num">0</td><td class="num">2</td><td class="num">0</td><td class="num"><strong>2</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Question-level escalation -->
+<div class="qsection">
+  <h2>Question-Level Escalation Drivers</h2>
+  <p style="color:var(--muted); font-size:12px; margin:-8px 0 12px">Flagged by the QC judge — not transcript-confirmed root cause. The dominant pattern: repeating questions → not adapting to the rep → payer frustration.</p>
+  <table>
+    <thead><tr><th>Driver</th><th class="num">MedBV</th><th class="num">PBM</th><th class="num">Transport</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr><td>Repeated questioning / payer forced to repeat</td><td class="num">89</td><td class="num">63</td><td class="num">1</td><td class="num"><strong>153</strong></td></tr>
+      <tr><td>Failed to adapt to payer answer</td><td class="num">66</td><td class="num">40</td><td class="num">0</td><td class="num"><strong>106</strong></td></tr>
+      <tr><td>Payer frustration</td><td class="num">64</td><td class="num">36</td><td class="num">1</td><td class="num"><strong>101</strong></td></tr>
+      <tr><td>Closing step missed</td><td class="num">6</td><td class="num">6</td><td class="num">0</td><td class="num"><strong>12</strong></td></tr>
+      <tr><td>Did not follow payer request</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><strong>8</strong></td></tr>
+      <tr><td>Over-waiting / stalling</td><td class="num">6</td><td class="num">1</td><td class="num">0</td><td class="num"><strong>7</strong></td></tr>
+      <tr><td>Unnecessary check-ins during hold</td><td class="num">2</td><td class="num">3</td><td class="num">0</td><td class="num"><strong>5</strong></td></tr>
+      <tr><td>Poor call-flow organization</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num"><strong>1</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>Generated from August 2026 QC dataset · click any agent name to see their flagged calls</footer>
+
+</div>
+
+<script>
+const julyData = {
+  "Abhishek Ningappanavar":{pbm:[1, 1, 354]},
+  "Afraa Fathima":{mm:[0, 4, 103]},
+  "Ajuba Yelmo":{mm:[1, 4, 135]},
+  "Anushiya S":{mm:[0, 1, 40]},
+  "Arbiya Taj":{pbm:[0, 2, 317]},
+  "Balaji A":{pbm:[0, 1, 35]},
+  "Challa Pavan Kumar":{pbm:[1, 1, 291]},
+  "Chandana Kurapothula":{pbm:[2, 1, 43]},
+  "Christopher Samson":{mm:[2, 0, 104]},
+  "Devendra Kothollu":{pbm:[0, 2, 258]},
+  "Divyashree M":{pbm:[0, 1, 32]},
+  "Dravid Kumar R":{pbm:[1, 0, 348]},
+  "Esha R":{pbm:[1, 1, 28]},
+  "Hariharan Rajapandian":{mm:[3, 2, 100]},
+  "Haseena Pulacherla":{mm:[1, 0, 113]},
+  "Hemalatha P":{pbm:[0, 2, 226]},
+  "Jennifer":{mm:[2, 2, 127]},
+  "Junaid R":{mm:[2, 0, 126]},
+  "Kelam Siva Sankar":{mm:[1, 1, 117],pbm:[0, 1, 17]},
+  "Kimdiana Grace":{pbm:[3, 2, 242]},
+  "Likith Kumar Ambruthaluru":{pbm:[2, 2, 334]},
+  "Manoj G":{mm:[2, 2, 140]},
+  "Megha Rai":{mm:[0, 1, 145]},
+  "Mohammed Zeeshan Rathod":{mm:[1, 3, 122]},
+  "Moin Khan":{mm:[1, 1, 14]},
+  "Nandha Kumar":{tr:[2, 0, 154]},
+  "Nandhini Ravi":{pbm:[2, 0, 228]},
+  "Naveena M":{pbm:[0, 2, 241]},
+  "Nirmal Kandhesh B":{mm:[0, 3, 100]},
+  "Pallavi N":{pbm:[1, 0, 267]},
+  "Pasupuleti Hymavathi":{pbm:[2, 7, 248]},
+  "Pavan Kumar Kalasu":{mm:[1, 0, 100]},
+  "Rakhesh Rohidas Pal":{mm:[2, 5, 136]},
+  "Riyaz Rehman":{mm:[3, 1, 131]},
+  "Saiyad Noorulla":{mm:[2, 0, 123]},
+  "Sandhya V":{mm:[3, 1, 101]},
+  "Santhosh S":{mm:[2, 1, 144]},
+  "Sharanya A":{pbm:[3, 1, 279]},
+  "Shreya Pendkur":{tr:[0, 1, 153]},
+  "Sibgathulla Khan":{mm:[2, 1, 5]},
+  "Sneha PN":{mm:[4, 1, 105]},
+  "Srihari K P":{pbm:[1, 0, 156]},
+  "Srinivasan Baskaran":{tr:[4, 0, 80]},
+  "Syed Sahil":{pbm:[1, 1, 100]},
+  "Thejashwini R":{mm:[4, 1, 59]},
+  "Trilok Srinivas":{mm:[2, 0, 94]},
+  "Vinoth N":{mm:[1, 3, 169]},
+  "intiyaj@100ms.ai":{mm:[3, 0, 89]},
+  "sindhu@100ms.ai":{tr:[2, 0, 170]},
+};
+
+// ============ AGENT DATA ============
+// key = agent name (workflow-scoped where the same name appears in multiple)
+// For Anil Kumar H S: he appears in both MM and PBM with different call counts, treated as one person.
+
+const agentData = {
+  "Abhishek Ningappanavar": {pbm:{calls:414,fails:[],escals:[["Sandoz",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a839554d17ddea295471ba8",""],["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a90ae01bdec780329ad3e8d",""]]}},
+  "Abu Talha": {mm:{calls:135,fails:[["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f4cd4c81ce255dc0fdbce","Wrong callback number"]],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74f01f13bbfbc836f6df29",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74e915e2fa488d94af5625",""],["J&J Immunology",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a86019419f964d5663e4639",""],["J&J Immunology",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c8182031a39daf5bc499f",""],["Sandoz",0.73,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a764149ffa93158566e28ba",""],["Sandoz",0.7,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a887295ff6dfc4788b69330",""]]}},
+  "Afraa Fathima": {mm:{calls:189,fails:[],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74868be2fa488d94ac4c8b",""],["Sandoz",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f36bd526b65c6283574c0",""],["Ocular",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a838449ceeaa22fa91b766a",""]]}},
+  "Ajuba Yelmo": {mm:{calls:206,fails:[],escals:[["Sandoz",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a763a40ffa93158566e03d3",""],["J&J Neuroscience",0.75,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88a81eff6dfc4788b8287e",""],["Ipsen",0.73,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f7990c81ce255dc110f0f",""],["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a906139bdec780329aaca73",""],["JJPAP",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a84d1e519f964d56638fa3a",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8457d219f964d566351997",""],["Ocular",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7dc8cee60839ee375fe611",""],["Sandoz",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c3d6a031a39daf5ba3236",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8e08154f09a7e8b89aabe3",""],["J&J Immunology",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8e010b321ed767d5a50f9a",""],["Lundbeck",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8844a8ff6dfc4788b53cb6",""],["J&J Neuroscience",0.86,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8321bdd17ddea295444af5",""],["J&J Immunology",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8df67d321ed767d5a4c21a",""]]}},
+  "Anil Kumar H S": {mm:{calls:17,fails:[["Sandoz",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f2c2fc81ce255dc0ee343","Recording disclosure not given"]],escals:[]}, pbm:{calls:335,fails:[["Orgovyx",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74fda9e2fa488d94afd961","HIPAA verification order violated"]],escals:[["GSK Specialty",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a91aeccf2aacb7d0c633982",""]]}},
+  "Anushiya S": {mm:{calls:304,fails:[],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7230724c0a5c14803ef388",""],["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a91c116f2aacb7d0c63b98e",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71ea0bef79a18b0acf2477",""],["J&J Immunology",0.63,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a79e606b1ee734a54e6664e",""],["J&J Neuroscience",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a861d3a19f964d5663f008c",""]]}},
+  "Arbiya Taj": {pbm:{calls:335,fails:[],escals:[["GSK Specialty",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b64e8a0280b86cc782012",""],["GSK Specialty",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71f7d8ef79a18b0acf8f21",""],["Orgovyx",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f3cc3321ed767d5aad250",""],["GSK Specialty",0.68,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7a2bd5c506da22ab2d2039",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b29b2a0280b86cc7652a3",""]]}},
+  "Asma Banu": {pbm:{calls:375,fails:[],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8310a4ceeaa22fa917e284",""],["J&J Neuroscience",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88c0c0ff6dfc4788b8cef3",""],["GSK Specialty",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a9075b6bdec780329ab72bc",""]]}},
+  "Balaji A": {pbm:{calls:431,fails:[],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a847e8d19f964d566366775",""]]}},
+  "Bhavana S": {pbm:{calls:392,fails:[],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b2d37a0280b86cc766885",""],["JJPAP",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8464d74cd7317ca1971499",""],["J&J Immunology",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a90571ebdec780329aa7437",""]]}},
+  "Challa Pavan Kumar": {pbm:{calls:384,fails:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c67e1dfb4347735c21b7f","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c96a1031a39daf5bcdb4b",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8dfa024f09a7e8b89a4046",""],["Orgovyx",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73bd9113bbfbc836f14a58",""],["GSK Specialty",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a91ce77f2aacb7d0c6413c3",""]]}},
+  "Chandana Kurapothula": {pbm:{calls:236,fails:[["JJPAP",0.81,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a886f09ff6dfc4788b6793d","Program name/intro wrong or missing; Agent introduction missing"]],escals:[["J&J Immunology",0.81,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8db0194f09a7e8b8980257",""],["J&J Immunology",0.71,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8de15d4f09a7e8b8997edf",""]]}},
+  "Christopher Samson": {mm:{calls:216,fails:[],escals:[["Sandoz",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74f320e2fa488d94af8b62",""]]}},
+  "Deepika Dhanunjaya": {mm:{calls:127,fails:[["Sandoz",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73346313bbfbc836ed7e5e","Recording disclosure not given; Wrong callback number; Disclosure not restated on transfer"],["Ocular",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7dfd92e7574e247b757620","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f3ec0c81ce255dc0f67b7",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70c2849070b2d7d2df092e",""]]}},
+  "Devendra Kothollu": {pbm:{calls:378,fails:[],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b53eea0280b86cc778c62",""],["GSK Specialty",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b8b9ba0280b86cc792aa5",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7dd452f809db29d1de733a",""],["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88cbc2ff6dfc4788b904a9",""],["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f19714f09a7e8b89ec7af",""],["JJPAP",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a84dff719f964d566393142",""],["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a908efdbdec780329ac4ed5",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f45cbc81ce255dc0f97a7",""],["GSK Specialty",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a834ba0d17ddea295457414",""]]}},
+  "Divyashree M": {pbm:{calls:330,fails:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71019f03a7a3f7159d31ba","Program name/intro wrong or missing"],["GSK Specialty",0.75,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70a29f9070b2d7d2dde7d9","Program name/intro wrong or missing; Agent introduction missing"]],escals:[["JJPAP",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a85e7ca0382a559f8899705",""]]}},
+  "Dravid Kumar R": {pbm:{calls:432,fails:[["GSK Specialty",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73b69be2fa488d94a977d8","Program name/intro wrong or missing; Recording disclosure not given; Disclosure not restated on transfer"],["Orgovyx",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73abfa13bbfbc836f0fab5","Program name/intro wrong or missing; Disclosure not restated on transfer"]],escals:[]}},
+  "Esha R": {pbm:{calls:307,fails:[["J&J Immunology",0.72,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74db0213bbfbc836f64e33","Program name/intro wrong or missing; Recording disclosure not given; Disclosure not restated on transfer"],["GSK Specialty",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88aea4ff6dfc4788b851a4","Program name/intro wrong or missing"],["Orgovyx",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a710197cb7217559beb9bbe","Program name/intro wrong or missing"],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8dfd87321ed767d5a4fba1","HIPAA verification order violated"]],escals:[["GSK Specialty",0.64,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a872ba98be0556cf4d1bdbe",""],["J&J Immunology",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8605190382a559f88a5b0c",""],["GSK Specialty",0.74,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8324edceeaa22fa9189715",""]]}},
+  "Hariharan Rajapandian": {mm:{calls:223,fails:[["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7c7791caec6d2bcad3b84d","Program name/intro wrong or missing"],["Sandoz",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f59ebc81ce255dc102cc3","Program name/intro wrong or missing"]],escals:[["J&J Neuroscience",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8842035a58ce10be30e2a1",""],["J&J Immunology",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a75d84bffa93158566b8578",""],["Sandoz",0.7,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71fb53ef79a18b0acfa949",""],["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c64e8031a39daf5bb72e9",""]]}},
+  "Haseena Pulacherla": {mm:{calls:161,fails:[["Sandoz",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8deaa14f09a7e8b899cdc0","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.86,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a886cc0ff6dfc4788b66adb",""]]}},
+  "Hemalatha P": {pbm:{calls:440,fails:[],escals:[["J&J Neuroscience",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c962edfb4347735c34b8d",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b1f21a0280b86cc760280",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c4931031a39daf5ba9591",""],["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8df67d321ed767d5a4c207",""],["J&J Neuroscience",0.86,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73624c98cd87ceb9d3f32b",""]]}},
+  "Jennifer": {mm:{calls:180,fails:[["Sandoz",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70b7b39070b2d7d2deb961","Program name/intro wrong or missing; Recording disclosure not given"]],escals:[["Ocular",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8df9274f09a7e8b89a3a06",""],["J&J Immunology",0.85,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f3a284f09a7e8b89fcd05",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8772fc6e34c50c2e64afa2",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7e28d0e7574e247b768fa7",""]]}},
+  "Jyoti Sharma": {mm:{calls:250,fails:[["J&J Neuroscience",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b9673a0280b86cc797b0c","HIPAA verification order violated"]],escals:[]}},
+  "Kabiya C": {pbm:{calls:398,fails:[],escals:[["Ipsen",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a76090d13bbfbc836fb9fab",""]]}},
+  "Kimdiana Grace": {mm:{calls:18,fails:[],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f9a3c526b65c62837e4aa",""]]}, pbm:{calls:323,fails:[],escals:[["J&J Immunology",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c8507031a39daf5bc5d09",""],["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f35974f09a7e8b89fa311",""]]}},
+  "Likith Kumar Ambruthaluru": {pbm:{calls:411,fails:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8631e819f964d5663f508c","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.88,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a91b6f0f2aacb7d0c63747c",""],["GSK Specialty",0.74,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7ccbbccaec6d2bcad6100f",""]]}},
+  "Manjith kumar Durthati": {mm:{calls:134,fails:[["J&J Immunology",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c8c11031a39daf5bc8eed","HIPAA verification order violated"]],escals:[["J&J Neuroscience",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8496ac19f964d566372fb5",""]]}},
+  "Manoj G": {mm:{calls:196,fails:[["J&J Immunology",0.74,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71df7aef79a18b0acecace","Program name/intro wrong or missing; Recording disclosure not given; Disclosure not restated on transfer"],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a79f095b1ee734a54e6bec8","Program name/intro wrong or missing"]],escals:[["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8ca0bddfb4347735c38996",""]]}},
+  "Megha Rai": {mm:{calls:202,fails:[["Sandoz",0.68,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70c5c59070b2d7d2df1ec3","Program name/intro wrong or missing; Recording disclosure not given; Disclosure not restated on transfer"]],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a84c4f04cd7317ca199ba1f",""],["Lundbeck",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73a4f913bbfbc836f0d323",""],["J&J Immunology",0.73,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a75f47513bbfbc836faf869",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f1a7c321ed767d5a9ba29",""],["J&J Neuroscience",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a888162ff6dfc4788b702e0",""],["J&J Neuroscience",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7c85a6caec6d2bcad41947",""]]}},
+  "Mohammed Zeeshan Rathod": {mm:{calls:101,fails:[],escals:[["Sandoz",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a889947ff6dfc4788b7bb8f",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7e36e3e835f3ba0446d583",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73547713bbfbc836ee7f6d",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74a9bde2fa488d94ad7006",""]]}},
+  "Moin Khan": {mm:{calls:118,fails:[["Sandoz",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7dc558e60839ee375fcefd","Program name/intro wrong or missing"],["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c61d5dfb4347735c1f0be","Program name/intro wrong or missing **"],["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a6cfb2c460121ce896248b1","Program name/intro wrong or missing; Recording disclosure not given"],["Sandoz",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7ccb9a44cae1142d450531","Program name/intro wrong or missing"],["Sandoz",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7cc815caec6d2bcad5f9a8","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c3ea1dfb4347735c0e417",""],["Sandoz",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f7994c81ce255dc110f29",""],["J&J Immunology",0.73,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b5773a0280b86cc77bd9e",""],["Lundbeck",0.74,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70f387cb7217559beb3dd3",""]]}},
+  "Nandha Kumar": {tr:{calls:134,fails:[["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7e08af459f1e94b81c7b5b","HIPAA verification order violated"],["J&J Oncology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a76171613bbfbc836fc0b37","Wrong callback number"]],escals:[["J&J Neuroscience",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7a4135b1ee734a54e919ca",""]]}},
+  "Nandhini Ravi": {pbm:{calls:397,fails:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a91a43ef2aacb7d0c62e3c1","Wrong callback number"]],escals:[["J&J Immunology",0.85,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88541d5a58ce10be315e64",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a95a177a181fe612c56e2b8",""],["GSK Specialty",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8607af19f964d5663e6c35",""]]}},
+  "Naveena M": {pbm:{calls:176,fails:[["J&J Immunology",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a721ed94c0a5c14803e6ba5","Recording disclosure not given; Disclosure not restated on transfer"]],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8450c84cd7317ca196815e",""]]}},
+  "Nirmal Kandhesh B": {mm:{calls:237,fails:[["J&J Immunology",0.74,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a71f116ef79a18b0acf5731","Program name/intro wrong or missing; Recording disclosure not given; Disclosure not restated on transfer"],["Ocular",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a870fcf8be0556cf4d0f007","Program name/intro wrong or missing"],["J&J Oncology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8727c98be0556cf4d1a2c4","Program name/intro wrong or missing; Recording disclosure not given"],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a738cc713bbfbc836f02837","Program name/intro wrong or missing"]],escals:[["Sandoz",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f7115321ed767d5ac0592",""]]}},
+  "Pasupuleti Hymavathi": {pbm:{calls:370,fails:[],escals:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f391c4f09a7e8b89fc2ca",""],["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f52554f09a7e8b8a07520",""],["J&J Immunology",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f5763c81ce255dc101ec3",""],["GSK Specialty",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8e0a944f09a7e8b89aba91",""],["J&J Immunology",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a83223dceeaa22fa9187861",""]]}},
+  "Pavan Kumar Kalasu": {mm:{calls:105,fails:[],escals:[["J&J Neuroscience",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a75d802ffa93158566b8323",""]]}},
+  "Pooja V": {pbm:{calls:376,fails:[],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74c260e2fa488d94ae2676",""]]}},
+  "Pooja Y": {mm:{calls:231,fails:[],escals:[["J&J Neuroscience",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a95b9a8a181fe612c57a38b",""]]}},
+  "Rakhesh Rohidas Pal": {mm:{calls:182,fails:[],escals:[["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8881ddff6dfc4788b7061a",""],["Sandoz",0.88,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8d92ab4f09a7e8b8970e81",""],["J&J Immunology",0.72,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b22a7a0280b86cc761fd6",""],["J&J Immunology",0.83,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a887e59ff6dfc4788b6f2e6",""],["J&J Immunology",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a833e64d17ddea2954517d9",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8c655adfb4347735c209bb",""],["J&J Immunology",0.9,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88498e5a58ce10be310578",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7101decb7217559beb9ebf",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a84cf7e19f964d56638ec02",""]]}},
+  "Riyaz Rehman": {mm:{calls:161,fails:[],escals:[["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a88a499ff6dfc4788b81069",""],["Lundbeck",0.72,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a85eb2719f964d5663da594",""],["Lundbeck",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7c8fc6caec6d2bcad462bb",""]]}},
+  "Saiyad Noorulla": {mm:{calls:94,fails:[],escals:[["Sandoz",0.67,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a76333713bbfbc836fcfc89",""]]}},
+  "Sandhya V": {mm:{calls:147,fails:[],escals:[["Sandoz",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a909c15bdec780329acb1e6",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f10fdc81ce255dc0e0ba9",""]]}},
+  "Sanjay S Kumar": {tr:{calls:145,fails:[["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7dbb3ce60839ee375f8195","HIPAA verification order violated"],["J&J Neuroscience",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a72027b4c0a5c14803d882c","Recording disclosure not given; Disclosure not restated on transfer"]],escals:[]}},
+  "Santhosh S": {mm:{calls:159,fails:[["Lundbeck",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a9183faf2aacb7d0c61d0e3","Recording disclosure not given"]],escals:[["J&J Neuroscience",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8ca0bddfb4347735c38993",""],["J&J Immunology",0.95,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a908863bdec780329ac0a00",""]]}},
+  "Sharanya A": {pbm:{calls:358,fails:[["J&J Immunology",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a79fea8c506da22ab2be46b","Program name/intro wrong or missing"]],escals:[["GSK Specialty",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8f4ab34f09a7e8b8a03e90",""],["GSK Specialty",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7217834c0a5c14803e210d",""]]}},
+  "Shereen taj": {pbm:{calls:359,fails:[],escals:[["Orgovyx",0.7,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7a050cc506da22ab2c1810",""],["JJPAP",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a725a5b4c0a5c148040409b",""]]}},
+  "Sneha PN": {mm:{calls:142,fails:[["Lundbeck",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a74b75413bbfbc836f54956","Recording disclosure not given"],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b3441a0280b86cc769dad","Wrong callback number"],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a849e3919f964d566376a5a","Wrong callback number"]],escals:[["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a737b2d98cd87ceb9d49fae",""]]}},
+  "Srihari K P": {pbm:{calls:408,fails:[["GSK PAP",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a79f9b3c506da22ab2bc314","Wrong callback number"],["GSK Specialty",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f611e526b65c62836907f","Recording disclosure not given; Disclosure not restated on transfer"],["GSK Specialty",0.88,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8488394cd7317ca198187d","Program name/intro wrong or missing"],["JJPAP",0.81,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a9086edbdec780329abfb50","Recording disclosure not given; Disclosure not restated on transfer"]],escals:[["JJPAP",0.75,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a887996ff6dfc4788b6cac3",""],["J&J Neuroscience",0.85,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a85f68419f964d5663df011",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a83375bceeaa22fa9193027",""],["J&J Immunology",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73894113bbfbc836f0110b",""]]}},
+  "Sudharshan S": {mm:{calls:163,fails:[],escals:[["Lundbeck",0.77,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7388d513bbfbc836f00b08",""],["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7245914c0a5c14803fac5f",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a73742398cd87ceb9d472ce",""],["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8caed0031a39daf5bd6a34",""]]}},
+  "Sumit Chetry": {mm:{calls:56,fails:[],escals:[["J&J Immunology",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7b2d37a0280b86cc766899",""],["J&J Immunology",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a8dcc3f4f09a7e8b898d55a",""]]}},
+  "Thejashwini R": {mm:{calls:197,fails:[["J&J Immunology",0.84,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a75df56ffa93158566bb29f","Program name/intro wrong or missing; HIPAA verification order violated"],["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a90a41bbdec780329ace63c","HIPAA verification order violated"]],escals:[]}},
+  "Trilok Srinivas": {mm:{calls:183,fails:[],escals:[["Sandoz",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7e27dfe7574e247b76861d",""],["J&J Immunology",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a908f6dbdec780329ac522e",""]]}},
+  "Vighneshwar Hegde": {pbm:{calls:451,fails:[],escals:[["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a908efcbdec780329ac4eb8",""]]}},
+  "Vinoth N": {mm:{calls:230,fails:[["J&J Neuroscience",0.91,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7f4c55526b65c628360cfa","HIPAA verification order violated"]],escals:[["Ipsen",0.87,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a908a5814c6d54ad612c309",""],["J&J Neuroscience",0.8,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a9188c2f2aacb7d0c6203cb",""],["J&J Immunology",0.78,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a6d0cc69070b2d7d2d27e22",""]]}},
+  "intiyaj@100ms.ai": {mm:{calls:151,fails:[["Sandoz",0.82,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a7a40d8b1ee734a54e91814","Program name/intro wrong or missing"]],escals:[["J&J Immunology",0.76,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a70dead9070b2d7d2dfe7fa",""]]}},
+  "sindhu@100ms.ai": {tr:{calls:133,fails:[["J&J Neuroscience",0.92,"https://dash.100ms.ai/org-68a0732edbe070ddd4e5ca2c/qc/6a75db8613bbfbc836fa2e50","Recording disclosure not given"]],escals:[]}},
+};
+
+// ============ RENDER AGENT LISTS ============
+function trendBadge(julyCount, augCount, kind) {
+  // Lower is better for fails/escalations
+  if (julyCount === null) {
+    return `<span class="trend new" title="Not flagged in July ${kind}">NEW</span>`;
+  }
+  if (augCount < julyCount) {
+    return `<span class="trend down" title="July: ${julyCount} → August: ${augCount}">▼ ${julyCount}→${augCount}</span>`;
+  }
+  if (augCount > julyCount) {
+    return `<span class="trend up" title="July: ${julyCount} → August: ${augCount}">▲ ${julyCount}→${augCount}</span>`;
+  }
+  return `<span class="trend same" title="July: ${julyCount} → August: ${augCount}">● ${julyCount}=${augCount}</span>`;
+}
+
+function renderList(container, workflow, kind) {
+  const items = [];
+  for (const [name, wfs] of Object.entries(agentData)) {
+    const wf = wfs[workflow];
+    if (!wf) continue;
+    const arr = kind === 'fails' ? wf.fails : wf.escals;
+    if (arr.length === 0) continue;
+    const jul = julyData[name] && julyData[name][workflow];
+    let julCount = null;
+    if (jul) julCount = kind === 'fails' ? jul[0] : jul[1];
+    const score = calcScore(wf.fails.length, wf.escals.length, wf.calls);
+    items.push({ name, calls: wf.calls, count: arr.length, julCount, score });
+  }
+  items.sort((a,b) => b.count - a.count || b.calls - a.calls);
+  const cls = kind === 'fails' ? 'fail' : 'escal';
+  const header = `
+    <div class="agent-list-head">
+      <span class="h-agent">Agent</span>
+      <span class="h-calls">Calls</span>
+      <span class="h-score">Score</span>
+      <span class="h-trend">Jul → Aug</span>
+      <span class="h-num">#</span>
+    </div>`;
+  container.innerHTML = header + items.map(it => {
+    const agentWf = agentData[it.name][workflow];
+    const isFlag = isFlagged(agentWf.fails.length, agentWf.escals.length, agentWf.calls);
+    const scoreCls = isFlag ? 'score-low' : `score-${scoreClass(it.score)}`;
+    const warnReason = agentWf.fails.length >= 4 ? `${agentWf.fails.length} compliance failures — coaching flag` : 'Score below 80% — coaching flag';
+    return `
+    <li>
+      <a onclick="showAgent('${it.name.replace(/'/g,"\\'")}','${workflow}')">${it.name}${isFlag ? ` <span class="warn-dot" title="${warnReason}">⚠</span>` : ''}</a>
+      <span class="calls">${it.calls.toLocaleString()}</span>
+      <span class="score-cell ${scoreCls}">${it.score.toFixed(1)}%</span>
+      <span class="trend-cell">${trendBadge(it.julCount, it.count, kind)}</span>
+      <span class="num ${cls}">${it.count}</span>
+    </li>
+  `;}).join('');
+}
+
+renderList(document.getElementById('mm-fails'),  'mm',  'fails');
+renderList(document.getElementById('mm-escals'), 'mm',  'escals');
+renderList(document.getElementById('pbm-fails'), 'pbm', 'fails');
+renderList(document.getElementById('pbm-escals'),'pbm', 'escals');
+renderList(document.getElementById('tr-fails'),  'tr',  'fails');
+renderList(document.getElementById('tr-escals'), 'tr',  'escals');
+
+// ============ AGENT DETAIL POPUP ============
+const wfLabel = { mm: 'MedBV (MM)', pbm: 'PBM', tr: 'Transportation' };
+
+function qcClass(qc) {
+  if (qc < 0.80) return 'low';
+  if (qc <= 0.94) return 'mid';
+  return 'high';
+}
+
+// ============ SOFT AUTH GATE ============
+// NOTE: This is a client-side cosmetic gate, not real security.
+// The page source is public — anyone can view it. This just hides the
+// escalation UI from casual viewers who don't know the sign-in.
+const ALLOWED_EMAILS = ['souvik.choudhury@100ms.ai', 'souvik.choudhury@100ms.live'];
+function isSignedIn() {
+  try {
+    const e = localStorage.getItem('qc_signed_email');
+    return e && ALLOWED_EMAILS.includes(e.toLowerCase());
+  } catch (err) { return false; }
+}
+function promptSignIn() {
+  const modal = document.getElementById('signin-modal');
+  const input = document.getElementById('signin-input');
+  const msg = document.getElementById('signin-msg');
+  msg.textContent = '';
+  input.value = '';
+  modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
+}
+function closeSignIn() {
+  document.getElementById('signin-modal').style.display = 'none';
+}
+function submitSignIn() {
+  const input = document.getElementById('signin-input');
+  const msg = document.getElementById('signin-msg');
+  const email = (input.value || '').trim().toLowerCase();
+  if (!email) {
+    msg.textContent = 'Please enter an email address.';
+    return;
+  }
+  if (ALLOWED_EMAILS.includes(email)) {
+    try { localStorage.setItem('qc_signed_email', email); } catch (err) {}
+    closeSignIn();
+    updateSignInUI();
+    // Small non-blocking confirmation
+    const status = document.getElementById('signin-status');
+    if (status) status.style.animation = 'pulse-warn 0.6s 2';
+  } else {
+    msg.textContent = 'This email is not authorized for escalation controls.';
+  }
+}
+function signOut() {
+  try { localStorage.removeItem('qc_signed_email'); } catch (err) {}
+  updateSignInUI();
+  closeAgent();
+}
+function updateSignInUI() {
+  const signed = isSignedIn();
+  const btn = document.getElementById('signin-btn');
+  const status = document.getElementById('signin-status');
+  if (btn) btn.style.display = signed ? 'none' : '';
+  if (status) status.style.display = signed ? '' : 'none';
+  if (signed) {
+    const emailEl = document.getElementById('signed-email');
+    if (emailEl) emailEl.textContent = localStorage.getItem('qc_signed_email');
+  }
+}
+
+// Allow Enter key + Escape in modal
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('signin-input');
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitSignIn();
+      if (e.key === 'Escape') closeSignIn();
+    });
+  }
+});
+
+// ============ QUALITY SCORE ============
+// Weighted: each 1% of calls with a compliance failure costs 5 points,
+// each 1% with an escalation costs 3 points. Range: 0–100.
+function calcScore(fails, escals, calls) {
+  if (!calls) return 100;
+  const failRate = (fails / calls) * 100;
+  const escalRate = (escals / calls) * 100;
+  return Math.max(0, 100 - (5 * failRate + 3 * escalRate));
+}
+
+// Coaching flag triggers on EITHER: score below 80%, OR compliance failures >= 4
+function isFlagged(fails, escals, calls) {
+  return calcScore(fails, escals, calls) < 80 || fails >= 4;
+}
+
+// ============ TEAM LEAD ESCALATION MATRIX ============
+const teamLeads = {
+  mm:  [
+    { name: 'Hosni Fayaz',     email: 'hosni@100ms.ai' },
+    { name: 'Karthik KM',      email: 'km.karthik@100ms.ai' },
+    { name: 'Sudeesh Kurup',   email: 'sudeesh@100ms.ai' },
+    { name: 'Jeswant Samuel',  email: 'jeswanth.s@100ms.ai' },
+  ],
+  pbm: [
+    { name: 'Rohan T',         email: 'rohan.t@100ms.ai' },
+    { name: 'Ezikel R',        email: 'ezekiel.melque@100ms.ai' },
+    { name: 'Basudeb G',       email: 'basudeb@100ms.ai' },
+  ],
+  tr:  [
+    { name: 'Hosni Fayaz',     email: 'hosni@100ms.ai' },
+    { name: 'Jeswant Samuel',  email: 'jeswanth.s@100ms.ai' },
+  ],
+};
+
+// Always CC'd on every escalation email
+const ccRecipients = [
+  { name: 'Ravi Thakur',   email: 'Thakur.Ravi@100ms.ai' },
+  { name: 'Indranil Dey',  email: 'indranil.dey@100ms.ai' },
+  { name: 'Aashish Atrey', email: 'aatrey.ashish@100ms.ai' },
+];
+
+function scoreClass(s) {
+  if (s < 80) return 'low';
+  if (s < 90) return 'mid';
+  return 'high';
+}
+
+function renderCallList(arr, agentName) {
+  if (!arr || arr.length === 0) return '<li class="empty">None</li>';
+  return arr.map(([prog, qc, url, reason]) => `
+    <li class="call-row">
+      <div class="call-top">
+        <span class="prog">${prog}</span>
+        <span class="qc ${qcClass(qc)}">QC ${Math.round(qc * 100)}%</span>
+        <a class="open-link" href="${url}" target="_blank" rel="noopener">Open call ↗</a>
+      </div>
+      ${reason ? `<div class="reason">${reason}</div>` : `<div class="reason muted">Likely driver: repeated questioning → failure to adapt → payer frustration (aggregate pattern, not per-call tagged)</div>`}
+    </li>
+  `).join('');
+}
+
+function showAgent(name, workflow) {
+  const wfs = agentData[name];
+  if (!wfs) return;
+  const wf = wfs[workflow];
+
+  const score = calcScore(wf.fails.length, wf.escals.length, wf.calls);
+
+  // Build cross-workflow context if agent appears in multiple
+  const workflowsPresent = Object.keys(wfs);
+  let meta = `${wfLabel[workflow]} · ${wf.calls.toLocaleString()} calls · Quality Score ${score.toFixed(1)}%`;
+  if (workflowsPresent.length > 1) {
+    const others = workflowsPresent.filter(w => w !== workflow)
+      .map(w => `${wfLabel[w]} (${wfs[w].calls} calls, ${wfs[w].fails.length} fail / ${wfs[w].escals.length} esc)`)
+      .join(' · ');
+    meta += ` · also active in: ${others}`;
+  }
+
+  document.getElementById('ad-name').textContent = name;
+  document.getElementById('ad-meta').textContent = meta;
+  document.getElementById('ad-fails').innerHTML = renderCallList(wf.fails, name);
+  document.getElementById('ad-escals').innerHTML = renderCallList(wf.escals, name);
+
+  // Warning banner if score < 80% OR compliance failures >= 4
+  const alertEl = document.getElementById('ad-alert');
+  const fCount = wf.fails.length;
+  const eCount = wf.escals.length;
+  const highFails = fCount >= 4;
+  const lowScore = score < 80;
+  if (lowScore || highFails) {
+    const failRate = ((fCount / wf.calls) * 100).toFixed(1);
+    const escalRate = ((eCount / wf.calls) * 100).toFixed(1);
+    let triggerLine = '';
+    if (highFails && lowScore) {
+      triggerLine = `Triggered by <strong>${fCount} compliance failures</strong> (auto-red at ≥4) <em>and</em> Quality Score <span class="score-big">${score.toFixed(1)}%</span> (below 80%).`;
+    } else if (highFails) {
+      triggerLine = `Triggered by <strong>${fCount} compliance failures</strong> — auto-red at ≥4 in a month, regardless of Quality Score (${score.toFixed(1)}%).`;
+    } else {
+      triggerLine = `Triggered by Quality Score <span class="score-big">${score.toFixed(1)}%</span> — below the 80% threshold.`;
+    }
+    // Build escalation block for this workflow's leads
+    const leads = teamLeads[workflow] || [];
+    const leadChips = leads.map(l =>
+      `<a class="lead-chip" href="mailto:${l.email}" title="Email ${l.name}">${l.name}</a>`
+    ).join('');
+    const ccChips = ccRecipients.map(l =>
+      `<a class="lead-chip cc-chip" href="mailto:${l.email}" title="Email ${l.name}">${l.name}</a>`
+    ).join('');
+    const allToEmails = leads.map(l => l.email).join(',');
+    const allCcEmails = ccRecipients.map(l => l.email).join(',');
+    const subject = encodeURIComponent(`[QC Coaching Flag — ${wfLabel[workflow]}] ${name} · Score ${score.toFixed(1)}%`);
+    const body = encodeURIComponent(
+`Hi team,
+
+Flagging ${name} (${wfLabel[workflow]}) for a coaching review based on August 2026 QC results.
+
+Quality Score: ${score.toFixed(1)}%
+Compliance failures: ${fCount} (${failRate}% of ${wf.calls} calls)
+Escalations: ${eCount} (${escalRate}% of ${wf.calls} calls)
+Trigger: ${highFails && lowScore ? '≥4 compliance failures AND score below 80%' : highFails ? '≥4 compliance failures in the month' : 'Quality Score below 80%'}
+
+Full call-level detail with links is in the report: https://souvikchoudhury1234.github.io/MonthlyComplianceReport/
+
+Please loop me in on the coaching plan.
+
+Thanks,
+Souvik`);
+    // Gmail compose URL pinned to souvik.choudhury@100ms.live via authuser
+    const senderEmail = 'souvik.choudhury@100ms.live';
+    const gmailHref = `https://mail.google.com/mail/?authuser=${encodeURIComponent(senderEmail)}&view=cm&fs=1&to=${encodeURIComponent(allToEmails)}&cc=${encodeURIComponent(allCcEmails)}&su=${subject}&body=${body}`;
+
+    // Escalation block only visible when signed in (soft gate)
+    const escalationHtml = isSignedIn() ? `
+      <div class="escalate-block">
+        <div class="escalate-label">Escalate to ${wfLabel[workflow]} team leads (TO):</div>
+        <div class="escalate-leads">${leadChips}</div>
+        <div class="escalate-label" style="margin-top:8px">Always CC'd:</div>
+        <div class="escalate-leads">${ccChips}</div>
+        <a class="escalate-all" href="${gmailHref}" target="_blank" rel="noopener">✉ Open in Gmail as souvik.choudhury@100ms.live &nbsp;→</a>
+        <div class="sender-note">Opens Gmail in a new tab, pre-composed and pinned to <strong>souvik.choudhury@100ms.live</strong>. If Gmail asks to sign in, use that account.</div>
+      </div>
+    ` : '';
+
+    alertEl.innerHTML = `
+      <strong>🚨 RED ALERT — Coaching intervention required</strong><br>
+      ${triggerLine}<br>
+      This agent had <strong>${fCount} compliance failure${fCount !== 1 ? 's' : ''}</strong> (${failRate}% of calls) and <strong>${eCount} escalation${eCount !== 1 ? 's' : ''}</strong> (${escalRate}% of calls) across ${wf.calls} ${wfLabel[workflow]} calls this month. Recommend a review session focused on ${fCount > 0 ? 'compliance script adherence' : ''}${fCount > 0 && eCount > 0 ? ' and ' : ''}${eCount > 0 ? 'active listening / not repeating questions' : ''}.
+      ${escalationHtml}
+    `;
+    alertEl.style.display = 'block';
+  } else {
+    alertEl.style.display = 'none';
+  }
+
+  const panel = document.getElementById('agent-detail');
+  panel.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeAgent() {
+  document.getElementById('agent-detail').classList.remove('active');
+}
+
+// ============ COLLAPSE / EXPAND WORKFLOWS ============
+function toggleWorkflow(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ============ PIE CHARTS ============
+const complianceData = [
+  { label: 'Program name / intro wrong or missing', value: 31, color: '#b23a3a' },
+  { label: 'Recording disclosure not given',        value: 17, color: '#d97757' },
+  { label: 'Disclosure not restated on transfer',   value: 11, color: '#e0a458' },
+  { label: 'HIPAA verification order violated',     value: 9,  color: '#c9b458' },
+  { label: 'Wrong callback number',                 value: 7,  color: '#7a9d5c' },
+  { label: 'Agent introduction missing',            value: 2,  color: '#4a7fa8' },
+];
+
+const escalationData = [
+  { label: 'Repeated questioning / payer forced to repeat', value: 153, color: '#b23a3a' },
+  { label: 'Failed to adapt to payer answer',               value: 106, color: '#d97757' },
+  { label: 'Payer frustration',                             value: 101, color: '#e0a458' },
+  { label: 'Closing step missed',                           value: 12,  color: '#c9b458' },
+  { label: 'Did not follow payer request',                  value: 8,   color: '#8fb26e' },
+  { label: 'Over-waiting / stalling',                       value: 7,   color: '#5c9d7f' },
+  { label: 'Unnecessary check-ins during hold',             value: 5,   color: '#4a7fa8' },
+  { label: 'Poor call-flow organization',                   value: 1,   color: '#6b6b8c' },
+];
+
+function renderPie(svgId, legendId, data) {
+  const svg = document.getElementById(svgId);
+  const legend = document.getElementById(legendId);
+  const cx = 90, cy = 90, r = 80;
+  const total = data.reduce((s, d) => s + d.value, 0);
+  let angle = -Math.PI / 2; // start at top
+
+  const slices = data.map(d => {
+    const sweep = (d.value / total) * Math.PI * 2;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(angle + sweep);
+    const y2 = cy + r * Math.sin(angle + sweep);
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+    angle += sweep;
+    const pct = ((d.value / total) * 100).toFixed(1);
+    return { path, color: d.color, label: d.label, value: d.value, pct };
+  });
+
+  svg.innerHTML = slices.map(s =>
+    `<path class="pie-slice" d="${s.path}" fill="${s.color}" stroke="white" stroke-width="1.5">
+       <title>${s.label}: ${s.value} (${s.pct}%)</title>
+     </path>`
+  ).join('');
+
+  legend.innerHTML = data.map((d, i) => {
+    const pct = ((d.value / total) * 100).toFixed(1);
+    return `<li>
+      <span class="sw" style="background:${d.color}"></span>
+      <span class="lbl">${d.label}</span>
+      <span class="val">${d.value} (${pct}%)</span>
+    </li>`;
+  }).join('');
+}
+
+renderPie('pie-compliance', 'legend-compliance', complianceData);
+renderPie('pie-escalation', 'legend-escalation', escalationData);
+updateSignInUI();
+</script>
+</body>
+</html>
